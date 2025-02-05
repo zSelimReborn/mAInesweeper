@@ -12,7 +12,8 @@ struct FMinesweeperCell
 {
 	bool bIsBomb;
 	bool bDiscovered;
-	int BombCount;
+	int32 BombCount;
+	FText Text;
 	
 	FMinesweeperCell(bool _bIsBomb);
 	bool IsBomb() const;
@@ -20,28 +21,42 @@ struct FMinesweeperCell
 	bool IsDiscovered() const;
 	void Discover();
 	void IncrementBombCount();
-	int GetCount() const;
+	int32 GetCount() const;
+	FText GetText() const;
 };
 
 struct FMinesweeperBoard
 {
 	typedef TArray<TArray<FMinesweeperCell>> Board;
+	typedef TPair<int32, int32> Coordinate;
 	
 	Board InnerBoard;
-	int RowCount;
-	int ColCount;
-	int CellToDiscover;
+	int32 RowCount;
+	int32 ColCount;
+	int32 CellToDiscover;
+	int32 TotalBombCount;
 	
 	FMinesweeperBoard();
 	void Create(const FString& BoardText);
-	int Rows() const;
-	int Cols() const;
-	bool IsDiscovered(const int Row, const int Column) const;
-	void Discover(const int Row, const int Column);
-	bool Exists(const int Row, const int Column) const;
+	int32 Rows() const;
+	int32 Cols() const;
+	int32 GetTotalBombCount() const;
+	bool IsDiscovered(const int32 Row, const int32 Column) const;
+	bool IsDiscovered(const int32 Index) const;
+	bool IsBomb(const int32 Row, const int32 Column) const;
+	bool IsBomb(const int32 Index) const;
+	TArray<int32> Discover(const int32 Row, const int32 Column);
+	TArray<int32> Reveal();
+	bool Exists(const int32 Row, const int32 Column) const;
+	bool Exists(const int32 Index) const;
+	FText GetCellText(const int32 Row, const int32 Column) const;
+	FText GetCellText(const int32 Index) const;
+	static TArray<Coordinate> GetAroundOffset();
 	bool HasWon() const;
-	FMinesweeperCell operator()(const int Row, const int Column) const;
-	FMinesweeperCell& operator()(const int Row, const int Column);
+	FMinesweeperCell operator()(const int32 Row, const int32 Column) const;
+	FMinesweeperCell& operator()(const int32 Row, const int32 Column);
+	FMinesweeperCell operator()(const int32 Index) const;
+	FMinesweeperCell& operator()(const int32 Index);
 };
 
 class FSweeperPluginModule : public IModuleInterface
@@ -59,7 +74,7 @@ private:
 
 	void RegisterMenus();
 
-	FReply OnGridButtonClicked(int ButtonId, int Row, int Col);
+	FReply OnGridButtonClicked(int32 ButtonId, int32 Row, int32 Col);
 
 	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
 
@@ -67,7 +82,5 @@ private:
 	TSharedPtr<class FUICommandList> PluginCommands;
 
 	FMinesweeperBoard Board;
-	TMap<int, bool> ButtonMapEnabled;
-	TMap<int, FText> ButtonMapText;
-	TMap<int, TSharedRef<SButton>> Buttons;
+	TMap<int32, TSharedRef<SButton>> Buttons;
 };

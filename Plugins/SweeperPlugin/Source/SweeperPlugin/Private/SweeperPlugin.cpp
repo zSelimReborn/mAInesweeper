@@ -17,7 +17,7 @@ static const FName SweeperPluginTabName("SweeperPlugin");
 #define LOCTEXT_NAMESPACE "FSweeperPluginModule"
 
 FMinesweeperCell::FMinesweeperCell(bool _bIsBomb)
-	: bIsBomb(_bIsBomb), bDiscovered(false), BombCount(0)
+	: bIsBomb(_bIsBomb), bDiscovered(false), BombCount(0), Text(FText::GetEmpty())
 {
 }
 
@@ -34,6 +34,9 @@ bool FMinesweeperCell::IsDiscovered() const
 void FMinesweeperCell::Discover()
 {
 	bDiscovered = true;
+
+	const FString TextString = IsBomb()? TEXT("X") : FString::Printf(TEXT("%d"), BombCount);
+	Text = FText::FromString(TextString);
 }
 
 void FMinesweeperCell::IncrementBombCount()
@@ -46,9 +49,14 @@ bool FMinesweeperCell::IsEmpty() const
 	return BombCount == 0;
 }
 
-int FMinesweeperCell::GetCount() const
+int32 FMinesweeperCell::GetCount() const
 {
 	return BombCount;
+}
+
+FText FMinesweeperCell::GetText() const
+{
+	return Text;
 }
 
 FMinesweeperBoard::FMinesweeperBoard()
@@ -59,14 +67,16 @@ FMinesweeperBoard::FMinesweeperBoard()
 
 void FMinesweeperBoard::Create(const FString& BoardText)
 {
+	CellToDiscover = 0;
 	InnerBoard.Empty();
 
-	TArray<TPair<int, int>> BombIndexes;
+	TArray<Coordinate> BombIndexes;
 	TArray<FString> Rows;
 	BoardText.ParseIntoArray(Rows, TEXT("|"), true);
 
+	// Parsing and board creation
 	RowCount = Rows.Num();
-	for (int i = 0; i < Rows.Num(); ++i)
+	for (int32 i = 0; i < Rows.Num(); ++i)
 	{
 		TArray<FMinesweeperCell> NewRow;
 		const FString RowString = Rows[i];
@@ -75,7 +85,7 @@ void FMinesweeperBoard::Create(const FString& BoardText)
 		RowString.ParseIntoArray(Elements, TEXT(","), true);
 		ColCount = FMath::Max(Elements.Num(), ColCount);
 		
-		for (int j = 0; j < ColCount; ++j)
+		for (int32 j = 0; j < ColCount; ++j)
 		{
 			const FString Element = Elements[j];
 			bool bIsBomb = Element.Equals("1");
@@ -84,7 +94,8 @@ void FMinesweeperBoard::Create(const FString& BoardText)
 
 			if (bIsBomb)
 			{
-				BombIndexes.Add(TPair<int, int>(i, j));
+				BombIndexes.Add(Coordinate(i, j));
+				TotalBombCount++;
 			}
 			else
 			{
@@ -95,36 +106,27 @@ void FMinesweeperBoard::Create(const FString& BoardText)
 		InnerBoard.Add(NewRow);
 	}
 
-
-	TArray<TPair<int, int>> AroundBomb{
-		{-1, -1}, //TopLeft
-		{-1, 0}, //Top
-		{-1, 1}, //TopRight
-		{0, 1}, //Right
-		{1, 1}, //BottomRight
-		{1, 0}, //Bottom
-		{1, -1}, //BottomLeft
-		{0, -1}, //Left
-	};
-	for (const TPair<int, int>& BombIndex : BombIndexes)
+	// Bomb counting
+	for (const Coordinate& BombIndex : BombIndexes)
 	{
-		for (const TPair<int, int>& Around : AroundBomb)
+		for (const Coordinate& Around : GetAroundOffset())
 		{
-			const int Row = BombIndex.Key + Around.Key;
-			const int Col = BombIndex.Value + Around.Value;
+			const int32 Row = BombIndex.Key + Around.Key;
+			const int32 Col = BombIndex.Value + Around.Value;
 			if (InnerBoard.IsValidIndex(Row) && InnerBoard[Row].IsValidIndex(Col))
 			{
 				InnerBoard[Row][Col].IncrementBombCount();
 			}
 		}
 	}
-	
+
+	// Debug logging
 	UE_LOG(LogTemp, Error, TEXT("[MineSweeper] - Created board. Rows: %d | Cols: %d | CellToDiscover: %d"), RowCount, ColCount, CellToDiscover);
 	UE_LOG(LogTemp, Error, TEXT("[MineSweeper] - Original string: %s"), *BoardText);
-	for (int i = 0; i < RowCount; ++i)
+	for (int32 i = 0; i < RowCount; ++i)
 	{
 		FString RowPrint;
-		for (int j = 0; j < ColCount; ++j)
+		for (int32 j = 0; j < ColCount; ++j)
 		{
 			FString ElementString = InnerBoard[i][j].IsBomb() ? TEXT("x") : FString::Printf(TEXT("%d"), InnerBoard[i][j].GetCount());
 			if (j != ColCount - 1)
@@ -138,17 +140,22 @@ void FMinesweeperBoard::Create(const FString& BoardText)
 	}
 }
 
-int FMinesweeperBoard::Rows() const
+int32 FMinesweeperBoard::Rows() const
 {
 	return RowCount;
 }
 
-int FMinesweeperBoard::Cols() const
+int32 FMinesweeperBoard::Cols() const
 {
 	return ColCount;
 }
 
-bool FMinesweeperBoard::IsDiscovered(const int Row, const int Column) const
+int32 FMinesweeperBoard::GetTotalBombCount() const
+{
+	return TotalBombCount;
+}
+
+bool FMinesweeperBoard::IsDiscovered(const int32 Row, const int32 Column) const
 {
 	if (InnerBoard.IsValidIndex(Row) && InnerBoard[Row].IsValidIndex(Column))
 	{
@@ -158,16 +165,148 @@ bool FMinesweeperBoard::IsDiscovered(const int Row, const int Column) const
 	return false;
 }
 
-void FMinesweeperBoard::Discover(const int Row, const int Column)
+bool FMinesweeperBoard::IsDiscovered(const int32 Index) const
 {
-	if (InnerBoard.IsValidIndex(Row) && InnerBoard[Row].IsValidIndex(Column) && !InnerBoard[Row][Column].IsDiscovered())
-	{
-		CellToDiscover = FMath::Max(0, CellToDiscover - 1);
-		return InnerBoard[Row][Column].Discover();
-	}
+	const int32 Row = Index / ColCount;
+	const int32 Column = Index % ColCount;
+
+	return IsDiscovered(Row, Column);
 }
 
-bool FMinesweeperBoard::Exists(const int Row, const int Column) const
+bool FMinesweeperBoard::IsBomb(const int32 Index) const
+{
+	const int32 Row = Index / ColCount;
+	const int32 Column = Index % ColCount;
+
+	return IsBomb(Row, Column);
+}
+
+bool FMinesweeperBoard::Exists(const int32 Index) const
+{
+	const int32 Row = Index / ColCount;
+	const int32 Column = Index % ColCount;
+
+	return Exists(Row, Column);
+}
+
+FText FMinesweeperBoard::GetCellText(const int32 Row, const int32 Column) const
+{
+	if (InnerBoard.IsValidIndex(Row) && InnerBoard[Row].IsValidIndex(Column))
+	{
+		return InnerBoard[Row][Column].GetText();
+	}
+
+	return FText::GetEmpty();
+}
+
+FText FMinesweeperBoard::GetCellText(const int32 Index) const
+{
+	const int32 Row = Index / ColCount;
+	const int32 Column = Index % ColCount;
+	return GetCellText(Row, Column);
+}
+
+TArray<FMinesweeperBoard::Coordinate> FMinesweeperBoard::GetAroundOffset()
+{
+	static TArray<Coordinate> Around{
+		{-1, -1}, //TopLeft
+		{-1, 0}, //Top
+		{-1, 1}, //TopRight
+		{0, 1}, //Right
+		{1, 1}, //BottomRight
+		{1, 0}, //Bottom
+		{1, -1}, //BottomLeft
+		{0, -1}, //Left
+	};
+
+	return Around;
+}
+
+
+bool FMinesweeperBoard::IsBomb(const int32 Row, const int32 Column) const
+{
+	if (InnerBoard.IsValidIndex(Row) && InnerBoard[Row].IsValidIndex(Column))
+	{
+		return InnerBoard[Row][Column].IsBomb();
+	}
+
+	return false;
+}
+
+TArray<int32> FMinesweeperBoard::Discover(const int32 Row, const int32 Column)
+{
+	TArray<int32> Discovered;
+	if (!InnerBoard.IsValidIndex(Row) || !InnerBoard[Row].IsValidIndex(Column) || InnerBoard[Row][Column].IsDiscovered())
+	{
+		return Discovered;	
+	}
+
+	if (InnerBoard[Row][Column].IsBomb())
+	{
+		InnerBoard[Row][Column].Discover();
+		Discovered.Add(Row * RowCount + Column);
+		return Discovered;
+	}
+
+	// Recursively discover empty point on board
+	TQueue<Coordinate> ToDiscover;
+	ToDiscover.Enqueue(Coordinate(Row, Column));
+	while (!ToDiscover.IsEmpty())
+	{
+		Coordinate CurrentCoordinate;
+		if (ToDiscover.Dequeue(CurrentCoordinate))
+		{
+			FMinesweeperCell& Cell = InnerBoard[CurrentCoordinate.Key][CurrentCoordinate.Value];
+			if (!Cell.IsBomb())
+			{
+				Cell.Discover();
+
+				const int32 CellIndex = CurrentCoordinate.Key * RowCount + CurrentCoordinate.Value;
+				Discovered.AddUnique(CellIndex);
+				
+				if (!Cell.IsEmpty())
+				{
+					continue;
+				}
+					
+				for (const Coordinate& AdjacentOffset : GetAroundOffset())
+				{
+					const int32 AdjacentRow = AdjacentOffset.Key + CurrentCoordinate.Key;
+					const int32 AdjacentCol = AdjacentOffset.Value + CurrentCoordinate.Value;
+					if (Exists(AdjacentRow, AdjacentCol)
+						&& !IsDiscovered(AdjacentRow, AdjacentCol)
+						&& !IsBomb(AdjacentRow, AdjacentCol)
+					) {
+						ToDiscover.Enqueue(Coordinate(AdjacentRow, AdjacentCol));
+					}
+				}
+			}
+		}
+	}
+
+	CellToDiscover = FMath::Max(0, CellToDiscover - Discovered.Num());
+	return Discovered;
+}
+
+TArray<int32> FMinesweeperBoard::Reveal()
+{
+	TArray<int32> Revealed;
+	for (int32 i = 0; i < RowCount; ++i)
+	{
+		for (int32 j = 0; j < ColCount; ++j)
+		{
+			if (!IsDiscovered(i, j))
+			{
+				InnerBoard[i][j].Discover();
+				Revealed.Add(i * RowCount + j);
+			}
+		}
+	}
+
+	return Revealed;
+}
+
+bool FMinesweeperBoard::Exists(const int32 Row, const int32 Column) const
 {
 	return InnerBoard.IsValidIndex(Row) && InnerBoard[Row].IsValidIndex(Column);
 }
@@ -177,13 +316,29 @@ bool FMinesweeperBoard::HasWon() const
 	return CellToDiscover <= 0;
 }
 
-FMinesweeperCell FMinesweeperBoard::operator()(const int Row, const int Column) const
+FMinesweeperCell FMinesweeperBoard::operator()(const int32 Row, const int32 Column) const
 {
 	return InnerBoard[Row][Column];
 }
 
-FMinesweeperCell& FMinesweeperBoard::operator()(const int Row, const int Column)
+FMinesweeperCell& FMinesweeperBoard::operator()(const int32 Row, const int32 Column)
 {
+	return InnerBoard[Row][Column];
+}
+
+FMinesweeperCell& FMinesweeperBoard::operator()(const int32 Index)
+{
+	const int32 Row = Index / ColCount;
+	const int32 Column = Index % ColCount;
+
+	return InnerBoard[Row][Column];
+}
+
+FMinesweeperCell FMinesweeperBoard::operator()(const int32 Index) const
+{
+	const int32 Row = Index / ColCount;
+	const int32 Column = Index % ColCount;
+
 	return InnerBoard[Row][Column];
 }
 
@@ -234,22 +389,17 @@ TSharedRef<SDockTab> FSweeperPluginModule::OnSpawnPluginTab(const FSpawnTabArgs&
 
 	FText HintText = LOCTEXT("SweeperPromptHint", "Waiting your mAInesweeper request...");
 
-	ButtonMapEnabled.Empty();
-	ButtonMapText.Empty();
 	Buttons.Empty();
 
-	int ButtonId = 0;
+	int32 ButtonId = 0;
 	TSharedRef<SGridPanel> Grid = SNew(SGridPanel);
-	for (int i = 0; i < Board.Rows(); ++i)
+	for (int32 i = 0; i < Board.Rows(); ++i)
 	{
-		for (int j = 0; j < Board.Cols(); ++j)
+		for (int32 j = 0; j < Board.Cols(); ++j)
 		{
-			ButtonMapEnabled.Add(ButtonId, true);
-			ButtonMapText.Add(ButtonId, FText::GetEmpty());
-			
 			TSharedRef<SButton> Button = SNew(SButton)
 					.OnClicked_Raw(this, &FSweeperPluginModule::OnGridButtonClicked, ButtonId, i, j)
-					.IsEnabled_Lambda([this, ButtonId]() { return ButtonMapEnabled[ButtonId]; })
+					.IsEnabled_Lambda([this, ButtonId]() { return !Board.IsDiscovered(ButtonId); })
 				[
 					SNew(SVerticalBox)
 					+SVerticalBox::Slot()
@@ -258,7 +408,7 @@ TSharedRef<SDockTab> FSweeperPluginModule::OnSpawnPluginTab(const FSpawnTabArgs&
 					[
 						SNew(STextBlock)
 						.Justification(ETextJustify::Center)
-						.Text_Lambda([this, ButtonId]() { return ButtonMapText[ButtonId]; })
+						.Text_Lambda([this, ButtonId]() { return Board.GetCellText(ButtonId); })
 					]
 				];
 
@@ -300,62 +450,16 @@ TSharedRef<SDockTab> FSweeperPluginModule::OnSpawnPluginTab(const FSpawnTabArgs&
 		];
 }
 
-FReply FSweeperPluginModule::OnGridButtonClicked(int ButtonId, int Row, int Col)
+FReply FSweeperPluginModule::OnGridButtonClicked(int32 ButtonId, int32 Row, int32 Col)
 {
-	// Make static
-	TArray<TPair<int, int>> Around{
-			{-1, -1}, //TopLeft
-			{-1, 0}, //Top
-			{-1, 1}, //TopRight
-			{0, 1}, //Right
-			{1, 1}, //BottomRight
-			{1, 0}, //Bottom
-			{1, -1}, //BottomLeft
-			{0, -1}, //Left
-		};
+	TSet<int32> UpdateButtons;
 	
 	const FMinesweeperCell StartingCell = Board(Row, Col);
-	if (!StartingCell.IsBomb())
+	if (!Board.IsBomb(Row, Col))
 	{
-		// Recursively discover empty point on board
-		TQueue<TPair<int,int>> ToDiscover;
-		ToDiscover.Enqueue(TPair<int,int>(Row, Col));
-		while (!ToDiscover.IsEmpty())
-		{
-			TPair<int,int> Coordinate;
-			if (ToDiscover.Dequeue(Coordinate))
-			{
-				const FMinesweeperCell Cell = Board(Coordinate.Key, Coordinate.Value);
-				if (!Cell.IsBomb())
-				{
-					Board.Discover(Coordinate.Key, Coordinate.Value);
-					const int CellButtonId = Coordinate.Key * Board.Rows() + Coordinate.Value;
-					ButtonMapEnabled[CellButtonId] = false;
-
-					FString CellButtonText = FString::Printf(TEXT("%d"), Board(Coordinate.Key, Coordinate.Value).GetCount()); 
-					ButtonMapText[CellButtonId] = FText::FromString(CellButtonText);
-					Buttons[CellButtonId]->Invalidate(EInvalidateWidgetReason::LayoutAndVolatility);
-					if (!Cell.IsEmpty())
-					{
-						continue;
-					}
-					
-					for (const TPair<int, int>& AdjacentOffset : Around)
-					{
-						const int AdjacentRow = AdjacentOffset.Key + Coordinate.Key;
-						const int AdjacentCol = AdjacentOffset.Value + Coordinate.Value;
-						if (Board.Exists(AdjacentRow, AdjacentCol)
-							&& !Board(AdjacentRow, AdjacentCol).IsDiscovered()
-							&& !Board(AdjacentRow, AdjacentCol).IsBomb()
-						) {
-							ToDiscover.Enqueue(TPair<int,int>(AdjacentRow, AdjacentCol));
-						}
-					}
-				}
-			}
-		}
-
-		UE_LOG(LogTemp, Error, TEXT("[Minesweeper] - CellToDiscover: %d"), Board.CellToDiscover);
+		const TArray<int32> DiscoveredIds = Board.Discover(Row, Col);
+		UpdateButtons.Append(DiscoveredIds);
+		
 		if (Board.HasWon())
 		{
 			TSharedRef<SCustomDialog> GameWonDialog = SNew(SCustomDialog)
@@ -372,7 +476,8 @@ FReply FSweeperPluginModule::OnGridButtonClicked(int ButtonId, int Row, int Col)
 
 			GameWonDialog->ShowModal();
 
-			// TODO reveal board
+			const TArray<int32> RevealedIds = Board.Reveal();
+			UpdateButtons.Append(RevealedIds);
 		}
 	}
 	else
@@ -391,21 +496,18 @@ FReply FSweeperPluginModule::OnGridButtonClicked(int ButtonId, int Row, int Col)
 
 		const int32 GameOverClosed = GameOverDialog->ShowModal();
 		// Reveal Board
-		for (const TTuple<int, TSharedRef<SButton>>& Button : Buttons)
+		const TArray<int32> RevealedIds = Board.Reveal();
+		UpdateButtons.Append(RevealedIds);
+	}
+
+	for (const int32& Id : UpdateButtons)
+	{
+		if (Buttons.Contains(Id))
 		{
-			int Id = Button.Key;
-			ButtonMapEnabled[Id] = false;
-
-			int CurrentRow = Id / Board.Rows();
-			int CurrentCol = Id % Board.Cols();
-			bool bIsBomb = Board(CurrentRow, CurrentCol).IsBomb();
-			FString ButtonText = (bIsBomb)? TEXT("X") : FString::Printf(TEXT("%d"), Board(CurrentRow, CurrentCol).GetCount()); 
-			ButtonMapText[Id] = FText::FromString(ButtonText);
-
 			Buttons[Id]->Invalidate(EInvalidateWidgetReason::LayoutAndVolatility);
 		}
 	}
-
+	
 	return FReply::Handled();
 }
 
