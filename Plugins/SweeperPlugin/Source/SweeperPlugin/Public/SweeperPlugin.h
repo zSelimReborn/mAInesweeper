@@ -27,6 +27,8 @@ private:
 
 	void RegisterMenus();
 
+	FReply OnPlayAgainClick();
+
 	void OnGameOver();
 	void OnGameWin();
 

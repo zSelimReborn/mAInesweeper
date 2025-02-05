@@ -76,6 +76,7 @@ public:
 	void Construct(const FArguments& InArgs);
 
 	void BuildFromString(const FString& BoardText);
+	void Rebuild();
 
 private:
 	void PopulateGrid();
@@ -87,6 +88,7 @@ private:
 	TSharedPtr<SGridPanel> GridPanel;
 	TMap<int32, TSharedRef<SButton>> Buttons;
 
+	FString CurrentBoardText;
 	FMinesweeperBoard BoardModel;
 
 	FOnGameOverDelegate OnGameOver;

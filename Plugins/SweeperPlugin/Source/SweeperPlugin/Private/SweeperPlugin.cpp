@@ -71,11 +71,49 @@ TSharedRef<SDockTab> FSweeperPluginModule::OnSpawnPluginTab(const FSpawnTabArgs&
 		[
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()
+			.VAlign(VAlign_Fill)
+			.FillHeight(0.5f)
 			.Padding(10.f)
 			[
-				MinesweeperBoard.ToSharedRef()
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(10.f)
+				[
+					SNew(SBox)
+					.HAlign(HAlign_Fill)
+					.VAlign(VAlign_Center)
+					[
+						MinesweeperBoard.ToSharedRef()
+					]
+				]
+				+SHorizontalBox::Slot()
+				.Padding(10.f)
+				[
+					SNew(SBox)
+					.HAlign(HAlign_Left)
+					.VAlign(VAlign_Top)
+					[
+						SNew(SButton)
+						.OnClicked_Raw(this, &FSweeperPluginModule::OnPlayAgainClick)
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
+							[
+								SNew(STextBlock)
+								.Text(LOCTEXT("PlayAgainButtonText", "Play Again"))
+								.Justification(ETextJustify::Center)
+							]
+						]
+					]
+				]
 			]
 			+SVerticalBox::Slot()
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Fill)
+			.FillHeight(0.3f)
 			[
 				SNew(SBox)
 				.Padding(10.f)
@@ -146,6 +184,12 @@ void FSweeperPluginModule::RegisterMenus()
 			));
 		}
 	}
+}
+
+FReply FSweeperPluginModule::OnPlayAgainClick()
+{
+	MinesweeperBoard->Rebuild();
+	return FReply::Handled();
 }
 
 #undef LOCTEXT_NAMESPACE

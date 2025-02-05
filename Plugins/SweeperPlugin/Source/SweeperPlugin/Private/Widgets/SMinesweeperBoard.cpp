@@ -348,8 +348,14 @@ void SMinesweeperBoard::Construct(const FArguments& InArgs)
 
 void SMinesweeperBoard::BuildFromString(const FString& BoardText)
 {
-	BoardModel.Create(BoardText);
+	CurrentBoardText = BoardText;
+	BoardModel.Create(CurrentBoardText);
 	PopulateGrid();
+}
+
+void SMinesweeperBoard::Rebuild()
+{
+	BuildFromString(CurrentBoardText);
 }
 
 void SMinesweeperBoard::PopulateGrid()
