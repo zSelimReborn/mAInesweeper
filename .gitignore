@@ -76,3 +76,6 @@ DerivedDataCache/*
 
 # Rider
 .idea/
+
+# Hide Secret.ini
+Config/*Secret.ini

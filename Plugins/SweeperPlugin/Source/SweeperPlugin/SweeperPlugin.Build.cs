@@ -47,6 +47,7 @@ public class SweeperPlugin : ModuleRules
 				"ToolWidgets",
 				"Json",
 				"JsonUtilities",
+				"DeveloperSettings"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

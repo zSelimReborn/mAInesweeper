@@ -34,6 +34,8 @@ private:
 	void OnBoardRequestCompletedCallback(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
 	static FString ClearResponse(FString Response);
 
+	FString GetGeminiApiKey() const;
+
 private:
 	TSharedPtr<SEditableText> PromptEditableText;
 	FString CurrentPromptText;

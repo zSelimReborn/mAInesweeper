@@ -6,6 +6,7 @@
 #include "HttpModule.h"
 #include "SlateOptMacros.h"
 #include "Interfaces/IHttpResponse.h"
+#include "Settings/AISettings.h"
 
 #define LOCTEXT_NAMESPACE "FSweeperPluginModule"
 
@@ -52,7 +53,7 @@ void SMinesweeperPrompt::Construct(const FArguments& InArgs)
 
 TSharedRef<IHttpRequest> SMinesweeperPrompt::BuildBoardRequest(const FString& Prompt)
 {
-	const FString ApiKey = "";
+	const FString ApiKey = GetGeminiApiKey();
 	
 	TSharedRef<IHttpRequest> Request = FHttpModule::Get().CreateRequest();
 	Request->OnProcessRequestComplete().BindRaw(this, &SMinesweeperPrompt::OnBoardRequestCompletedCallback);
@@ -72,7 +73,23 @@ TSharedRef<IHttpRequest> SMinesweeperPrompt::BuildBoardRequest(const FString& Pr
 
 FString SMinesweeperPrompt::BuildRequestBody(const FString& Prompt) const
 {
-	FString Base = TEXT("{ \"contents\": [ { \"role\": \"model\", \"parts\": [ { \"text\": \"You are an assistant specialized in generating grids for the Minesweeper game. Respond with only 0 (empty) and 1 (mine), with each cell separated by commas and each row separated by a |. No extra text or explanations. Each time, generate a different field. If the request is not related to Minesweeper, respond with an empty JSON: [].\" } ] }, { \"role\": \"user\", \"parts\": [ { \"text\": \"{0}\" } ] } ] }");
+	FString Base = TEXT("{ "
+	"\"contents\": [ "
+		"{ "
+			"\"role\": \"model\", "
+			"\"parts\": [ "
+				"{ \"text\": \"You are an assistant specialized in generating grids for the Minesweeper game. "
+					"Respond with only 0 (empty) and 1 (mine), with each cell separated by commas and each row separated by a |. "
+					"No extra text or explanations. Each time, generate a different field. "
+					"If the request is not related to Minesweeper, respond with an empty JSON: [].\" "
+				"} "
+			"] "
+		"}, "
+		"{ \"role\": \"user\", "
+			"\"parts\": [ { \"text\": \"{0}\" } ] "
+		"} "
+	"] "
+	"}");
 	return FString::Format(*Base, {Prompt});
 }
 
@@ -147,6 +164,11 @@ void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request
 FString SMinesweeperPrompt::ClearResponse(FString Response)
 {
 	return Response.Replace(TEXT("\n"), TEXT(""));
+}
+
+FString SMinesweeperPrompt::GetGeminiApiKey() const
+{
+	return UAISettings::Get()->GetGeminiApiKey();
 }
 
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
