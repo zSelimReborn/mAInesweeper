@@ -10,6 +10,7 @@ class FMenuBuilder;
 class FUICommandList;
 
 class SMinesweeperBoard;
+class SMinesweeperPrompt;
 class SDockTab;
 
 class FSweeperPluginModule : public IModuleInterface
@@ -34,7 +35,10 @@ private:
 
 	TSharedRef<SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
 
+	void OnBoardRequestCompleted(FString BoardText);
+
 private:
 	TSharedPtr<FUICommandList> PluginCommands;
 	TSharedPtr<SMinesweeperBoard> MinesweeperBoard;
+	TSharedPtr<SMinesweeperPrompt> MinesweeperPrompt;
 };

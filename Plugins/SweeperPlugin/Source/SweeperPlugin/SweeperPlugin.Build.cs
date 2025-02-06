@@ -25,7 +25,8 @@ public class SweeperPlugin : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core",
+				"Core", 
+				"HTTP",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -43,7 +44,9 @@ public class SweeperPlugin : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-				"ToolWidgets"
+				"ToolWidgets",
+				"Json",
+				"JsonUtilities",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

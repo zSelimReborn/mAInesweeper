@@ -75,7 +75,7 @@ void FMinesweeperBoard::Create(const FString& BoardText)
 		
 		TArray<FString> Elements;
 		RowString.ParseIntoArray(Elements, TEXT(","), true);
-		ColCount = FMath::Max(Elements.Num(), ColCount);
+		ColCount = Elements.Num();
 		
 		for (int32 j = 0; j < ColCount; ++j)
 		{
@@ -105,7 +105,7 @@ void FMinesweeperBoard::Create(const FString& BoardText)
 		{
 			const int32 Row = BombIndex.Key + Around.Key;
 			const int32 Col = BombIndex.Value + Around.Value;
-			if (InnerBoard.IsValidIndex(Row) && InnerBoard[Row].IsValidIndex(Col))
+			if (Exists(Row, Col))
 			{
 				InnerBoard[Row][Col].IncrementBombCount();
 			}
@@ -355,7 +355,17 @@ void SMinesweeperBoard::BuildFromString(const FString& BoardText)
 
 void SMinesweeperBoard::Rebuild()
 {
+	if (CurrentBoardText.IsEmpty())
+	{
+		return;
+	}
+	
 	BuildFromString(CurrentBoardText);
+}
+
+FString SMinesweeperBoard::GetCurrentBoardText() const
+{
+	return CurrentBoardText;
 }
 
 void SMinesweeperBoard::PopulateGrid()

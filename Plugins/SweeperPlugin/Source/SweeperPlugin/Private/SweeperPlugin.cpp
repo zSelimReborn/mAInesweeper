@@ -12,6 +12,7 @@
 #include "Dialog/SCustomDialog.h"
 #include "Templates/SharedPointer.h"
 #include "Widgets/SMinesweeperBoard.h"
+#include "Widgets/SMinesweeperPrompt.h"
 
 static const FName SweeperPluginTabName("SweeperPlugin");
 
@@ -58,13 +59,13 @@ void FSweeperPluginModule::ShutdownModule()
 TSharedRef<SDockTab> FSweeperPluginModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
 {
 	FText HintText = LOCTEXT("SweeperPromptHint", "Waiting your mAInesweeper request...");
-	FString Text = "0,0,0,1,0,0|0,1,0,0,0,0|0,0,0,0,0,1|0,0,0,0,1,0|0,0,1,0,0,0|0,0,0,0,0,0";
 	
 	MinesweeperBoard = SNew(SMinesweeperBoard)
 		.OnGameOver_Raw(this, &FSweeperPluginModule::OnGameOver)
 		.OnGameWin_Raw(this, &FSweeperPluginModule::OnGameWin);
 
-	MinesweeperBoard->BuildFromString(Text);
+	MinesweeperPrompt = SNew(SMinesweeperPrompt)
+		.OnBoardRequestCompleted_Raw(this, &FSweeperPluginModule::OnBoardRequestCompleted);
 	
 	return SNew(SDockTab)
 		.TabRole(ETabRole::NomadTab)
@@ -96,6 +97,7 @@ TSharedRef<SDockTab> FSweeperPluginModule::OnSpawnPluginTab(const FSpawnTabArgs&
 					[
 						SNew(SButton)
 						.OnClicked_Raw(this, &FSweeperPluginModule::OnPlayAgainClick)
+						.IsEnabled_Lambda([this]() { return !MinesweeperBoard->GetCurrentBoardText().IsEmpty(); })
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
@@ -120,8 +122,7 @@ TSharedRef<SDockTab> FSweeperPluginModule::OnSpawnPluginTab(const FSpawnTabArgs&
 				.HAlign(HAlign_Fill)
 				.VAlign(VAlign_Bottom)
 				[
-					SNew(SEditableText)
-					.HintText(HintText)
+					MinesweeperPrompt.ToSharedRef()
 				]
 			]
 		];
@@ -159,6 +160,11 @@ void FSweeperPluginModule::OnGameWin()
 		});
 
 	GameWonDialog->ShowModal();
+}
+
+void FSweeperPluginModule::OnBoardRequestCompleted(FString BoardText)
+{
+	MinesweeperBoard->BuildFromString(BoardText);
 }
 
 void FSweeperPluginModule::PluginButtonClicked()

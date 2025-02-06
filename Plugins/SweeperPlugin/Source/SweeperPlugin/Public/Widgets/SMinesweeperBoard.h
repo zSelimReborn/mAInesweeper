@@ -78,6 +78,8 @@ public:
 	void BuildFromString(const FString& BoardText);
 	void Rebuild();
 
+	FString GetCurrentBoardText() const;
+
 private:
 	void PopulateGrid();
 	TSharedRef<SButton> CreateButton(int32 ButtonId, int32 Row, int32 Column);
