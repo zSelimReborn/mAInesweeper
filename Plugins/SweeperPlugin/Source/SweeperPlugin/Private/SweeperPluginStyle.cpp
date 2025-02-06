@@ -43,6 +43,12 @@ TSharedRef< FSlateStyleSet > FSweeperPluginStyle::Create()
 
 	Style->Set("SweeperPlugin.ToolBarButton", new IMAGE_BRUSH(TEXT("Bomb"), Icon20x20));
 
+	Style->Set("SweeperPlugin.NoDangerColor", FSlateColor(FColor::White));
+	Style->Set("SweeperPlugin.LowDangerColor", FSlateColor(FColor::Blue));
+	Style->Set("SweeperPlugin.MediumDangerColor", FSlateColor(FColor::Green));
+	Style->Set("SweeperPlugin.HighDangerColor", FSlateColor(FColor::Red));
+	Style->Set("SweeperPlugin.BombColor", FSlateColor(FColor::Black));
+	
 	return Style;
 }
 

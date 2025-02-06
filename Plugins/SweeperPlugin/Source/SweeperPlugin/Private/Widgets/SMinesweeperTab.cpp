@@ -53,7 +53,7 @@ void SMinesweeperTab::Construct(const FArguments& InArgs)
 					[
 						SNew(SButton)
 						.OnClicked_Raw(this, &SMinesweeperTab::OnPlayAgainClick)
-						.IsEnabled_Lambda([this]() { return !MinesweeperBoard->GetCurrentBoardText().IsEmpty(); })
+						.Visibility_Lambda([this]() { return MinesweeperBoard->GetCurrentBoardText().IsEmpty()? EVisibility::Collapsed : EVisibility::Visible; })
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()

@@ -4,6 +4,7 @@
 #include "Widgets/SMinesweeperBoard.h"
 
 #include "SlateOptMacros.h"
+#include "SweeperPluginStyle.h"
 #include "Widgets/Layout/SGridPanel.h"
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -60,6 +61,7 @@ FMinesweeperBoard::FMinesweeperBoard()
 void FMinesweeperBoard::Create(const FString& BoardText)
 {
 	CellToDiscover = 0;
+	TotalBombCount = 0;
 	InnerBoard.Empty();
 
 	TArray<Coordinate> BombIndexes;
@@ -198,6 +200,38 @@ FText FMinesweeperBoard::GetCellText(const int32 Index) const
 	return GetCellText(Row, Column);
 }
 
+FSlateColor FMinesweeperBoard::GetCellColor(const int32 Row, const int32 Column) const
+{
+	const ISlateStyle& Style = FSweeperPluginStyle::Get();
+
+	if (!InnerBoard.IsValidIndex(Row) || !InnerBoard[Row].IsValidIndex(Column))
+	{
+		return Style.GetSlateColor(TEXT("SweeperPlugin.NoDangerColor"));
+	}
+
+	const FMinesweeperCell Cell = InnerBoard[Row][Column];
+	FSlateColor Color = Style.GetSlateColor(TEXT("SweeperPlugin.NoDangerColor"));
+	if (Cell.IsBomb())
+	{
+		return Style.GetSlateColor(TEXT("SweeperPlugin.BombColor"));
+	}
+
+	TMap<int32, FSlateColor> AvailableColors = GetAvailableCellColors();
+	if (!AvailableColors.Contains(Cell.BombCount))
+	{
+		return Style.GetSlateColor(TEXT("SweeperPlugin.HighDangerColor"));
+	}
+	
+	return AvailableColors[Cell.BombCount];
+}
+
+FSlateColor FMinesweeperBoard::GetCellColor(const int32 Index) const
+{
+	const int32 Row = Index / ColCount;
+	const int32 Column = Index % ColCount;
+	return GetCellColor(Row, Column);
+}
+
 TArray<FMinesweeperBoard::Coordinate> FMinesweeperBoard::GetAroundOffset()
 {
 	static TArray<Coordinate> Around{
@@ -212,6 +246,18 @@ TArray<FMinesweeperBoard::Coordinate> FMinesweeperBoard::GetAroundOffset()
 	};
 
 	return Around;
+}
+
+TMap<int32, FSlateColor> FMinesweeperBoard::GetAvailableCellColors()
+{
+	static TMap<int32, FSlateColor> AvailableCellColors{
+		{0, FSweeperPluginStyle::Get().GetSlateColor(TEXT("SweeperPlugin.NoDangerColor"))},
+		{1, FSweeperPluginStyle::Get().GetSlateColor(TEXT("SweeperPlugin.LowDangerColor"))},
+		{2, FSweeperPluginStyle::Get().GetSlateColor(TEXT("SweeperPlugin.MediumDangerColor"))},
+		{3, FSweeperPluginStyle::Get().GetSlateColor(TEXT("SweeperPlugin.HighDangerColor"))},
+	};
+
+	return AvailableCellColors;
 }
 
 
@@ -342,7 +388,54 @@ void SMinesweeperBoard::Construct(const FArguments& InArgs)
 	GridPanel = SNew(SGridPanel);
 	ChildSlot
 	[
-		GridPanel.ToSharedRef()
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
+		.FillHeight(0.2f)
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				.Visibility_Lambda([this]() { return CurrentBoardText.IsEmpty()? EVisibility::Collapsed : EVisibility::Visible; })
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.HAlign(HAlign_Left)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SBox)
+					.WidthOverride(32)
+					.HeightOverride(32)
+					.MaxDesiredWidth(32)
+					.MaxDesiredHeight(32)
+					[
+						SNew(SImage)
+						.Image(FSweeperPluginStyle::Get().GetBrush(TEXT("SweeperPlugin.ToolBarButton")))
+					]
+				]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.HAlign(HAlign_Left)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Justification(ETextJustify::Center)
+						.Text_Lambda([this]() { return FText::FromString(FString::FromInt(BoardModel.GetTotalBombCount())); })
+					]
+				]
+			]
+		]
+		+SVerticalBox::Slot()
+		.FillHeight(0.8f)
+		[
+			GridPanel.ToSharedRef()
+		]
 	];
 }
 
@@ -409,6 +502,7 @@ TSharedRef<SButton> SMinesweeperBoard::CreateButton(int32 ButtonId, int32 Row, i
 			SNew(STextBlock)
 			.Justification(ETextJustify::Center)
 			.Text_Lambda([this, ButtonId]() { return BoardModel.GetCellText(ButtonId); })
+			.ColorAndOpacity_Lambda([this, ButtonId]() { return BoardModel.GetCellColor(ButtonId); })
 		]
 	];
 

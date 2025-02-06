@@ -53,7 +53,10 @@ struct FMinesweeperBoard
 	bool Exists(const int32 Index) const;
 	FText GetCellText(const int32 Row, const int32 Column) const;
 	FText GetCellText(const int32 Index) const;
+	FSlateColor GetCellColor(const int32 Row, const int32 Column) const;
+	FSlateColor GetCellColor(const int32 Index) const;
 	static TArray<Coordinate> GetAroundOffset();
+	static TMap<int32, FSlateColor> GetAvailableCellColors();
 	bool HasWon() const;
 	FMinesweeperCell operator()(const int32 Row, const int32 Column) const;
 	FMinesweeperCell& operator()(const int32 Row, const int32 Column);
