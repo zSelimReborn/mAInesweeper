@@ -56,8 +56,7 @@ void FSweeperPluginModule::ShutdownModule()
 
 TSharedRef<SDockTab> FSweeperPluginModule::OnSpawnMinesweeperTab(const FSpawnTabArgs& SpawnTabArgs)
 {
-	MinesweeperTab = SNew(SMinesweeperTab);
-	return MinesweeperTab.ToSharedRef();
+	return SNew(SMinesweeperTab);
 }
 
 void FSweeperPluginModule::MinesweeperButtonClicked()

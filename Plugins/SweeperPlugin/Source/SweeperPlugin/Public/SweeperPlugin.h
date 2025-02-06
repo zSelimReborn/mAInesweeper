@@ -10,8 +10,6 @@ class FMenuBuilder;
 class FUICommandList;
 class FSpawnTabArgs;
 
-class SMinesweeperTab;
-
 class FSweeperPluginModule : public IModuleInterface
 {
 public:
@@ -30,6 +28,4 @@ private:
 // Properties
 private:
 	TSharedPtr<FUICommandList> PluginCommands;
-
-	TSharedPtr<SMinesweeperTab> MinesweeperTab;
 };
