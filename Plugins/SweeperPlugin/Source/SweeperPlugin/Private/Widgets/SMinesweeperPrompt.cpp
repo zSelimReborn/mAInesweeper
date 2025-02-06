@@ -7,6 +7,7 @@
 #include "SlateOptMacros.h"
 #include "Interfaces/IHttpResponse.h"
 #include "Settings/AISettings.h"
+#include "Widgets/Views/SListView.h"
 
 #define LOCTEXT_NAMESPACE "FSweeperPluginModule"
 
@@ -21,31 +22,50 @@ void SMinesweeperPrompt::Construct(const FArguments& InArgs)
 	
 	FText HintText = LOCTEXT("SweeperPromptHint", "Waiting your mAInesweeper request...");
 	PromptEditableText = SNew(SEditableText)
-				.HintText(HintText);
+				.HintText(HintText)
+				.OnTextCommitted_Raw(this,&SMinesweeperPrompt::OnPromptCommit);
 
 	ChildSlot
 	[
-		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot()
-		.AutoWidth()
-		.FillWidth(.9f)
-		.HAlign(HAlign_Fill)
-		.VAlign(VAlign_Center)
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
 		[
-			PromptEditableText.ToSharedRef()
-		]
-		+SHorizontalBox::Slot()
-		.AutoWidth()
-		.FillWidth(.1f)
-		.HAlign(HAlign_Fill)
-		.VAlign(VAlign_Center)
-		[
-			SNew(SButton)
-			.OnClicked_Raw(this, &SMinesweeperPrompt::OnPromptButtonClick)
+			SNew(SScrollBox)
+			.Orientation(Orient_Vertical)
+			+SScrollBox::Slot()
+			.Padding(10)
 			[
-				SNew(STextBlock)
-				.Text(LOCTEXT("PromptButtonText", "Send"))
-				.Justification(ETextJustify::Center)
+				SAssignNew(ChatListView, SListView<TSharedPtr<FPromptMessage>>)
+					.ListItemsSource(&PromptMessages)
+					.Orientation(Orient_Vertical)
+					.SelectionMode(ESelectionMode::Type::None)
+					.OnGenerateRow_Raw(this, &SMinesweeperPrompt::OnGenerateChatRow)
+			]
+		]
+		+SVerticalBox::Slot()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.FillWidth(.9f)
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Center)
+			[
+				PromptEditableText.ToSharedRef()
+			]
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.FillWidth(.1f)
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SButton)
+				.OnClicked_Raw(this, &SMinesweeperPrompt::OnPromptButtonClick)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("PromptButtonText", "Send"))
+					.Justification(ETextJustify::Center)
+				]
 			]
 		]
 	];
@@ -95,21 +115,45 @@ FString SMinesweeperPrompt::BuildRequestBody(const FString& Prompt) const
 
 FReply SMinesweeperPrompt::OnPromptButtonClick()
 {
+	HandlePrompt();
+	return FReply::Handled();
+}
+
+void SMinesweeperPrompt::OnPromptCommit(const FText& PromptText, ETextCommit::Type CommitType)
+{
+	if (CommitType != ETextCommit::Type::OnEnter)
+	{
+		return;
+	}
+
+	HandlePrompt();
+}
+
+bool SMinesweeperPrompt::HandlePrompt()
+{
 	const FText Prompt = PromptEditableText->GetText();
 	if (Prompt.IsEmpty())
 	{
 		UE_LOG(LogSlate, Error, TEXT("[Minesweeper] - Empty prompt. AI Request blocked."));
-		return FReply::Handled();
+		return false;
 	}
 
 	CurrentPromptText = Prompt.ToString();
 	UE_LOG(LogSlate, Display, TEXT("[Minesweeper] - Prompt: %s"), *CurrentPromptText);
 	PromptEditableText->SetText(FText::GetEmpty());
 
+	TSharedPtr<FPromptMessage> UserMessage = MakeShared<FPromptMessage>(Prompt, true);
+	TSharedPtr<FPromptMessage> ServerMessage = MakeShared<FPromptMessage>(LOCTEXT("GeminiGeneratingText", "Generating..."), false);
+	LastServerMessage = ServerMessage;
+	PromptMessages.Add(UserMessage);
+	PromptMessages.Add(ServerMessage);
+
+	ChatListView->RequestListRefresh();
+
 	TSharedRef<IHttpRequest> Request = BuildBoardRequest(CurrentPromptText);
 	Request->ProcessRequest();
 	
-	return FReply::Handled();
+	return true;
 }
 
 void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
@@ -119,7 +163,12 @@ void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request
 	if (!bWasSuccessful || !Response.IsValid() || Response->GetResponseCode() > EHttpResponseCodes::PartialContent)
 	{
 		UE_LOG(LogSlate, Error, TEXT("[Minesweeper] - Error contacting Gemini: %d"), Response->GetResponseCode());
-		OnBoardRequestFailed.ExecuteIfBound(FString::Printf(TEXT("Error contacting Gemini: %d"), Response->GetResponseCode()));
+		
+		const FText ErrorText = FText::Format(LOCTEXT("GeminiGenericError", "Error contacting Gemini: {0}"), Response->GetResponseCode());
+		LastServerMessage->Content = ErrorText;
+		ChatListView->RequestListRefresh();
+		
+		OnBoardRequestFailed.ExecuteIfBound(ErrorText.ToString());
 		return;
 	}
 	
@@ -130,7 +179,12 @@ void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request
 	if (!BodyJson.IsValid())
 	{
 		UE_LOG(LogSlate, Error, TEXT("[Minesweeper] - AI response not valid, no JSON"));
-		OnBoardRequestFailed.ExecuteIfBound(FString::Printf(TEXT("Failed to deserialize Gemini response: %s"), *Body));
+		
+		const FText ErrorText = FText::Format(LOCTEXT("GeminiJsonFailed", "Failed to deserialize Gemini response: {0}"), FText::FromString(Body));
+		LastServerMessage->Content = ErrorText;
+		ChatListView->RequestListRefresh();
+
+		OnBoardRequestFailed.ExecuteIfBound(ErrorText.ToString());
 		return;
 	}
 
@@ -151,6 +205,9 @@ void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request
 					BoardText = ClearResponse(BoardText);
 					UE_LOG(LogSlate, Display, TEXT("[MineSweeper] - Board: %s"), *BoardText);
 
+					LastServerMessage->Content = LOCTEXT("GeminiGeneratedText", "Board generated correctly.");
+					ChatListView->RequestListRefresh();
+					
 					OnBoardRequestCompleted.ExecuteIfBound(BoardText);
 					return;
 				}
@@ -158,8 +215,50 @@ void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request
 		}
 	}
 
-	OnBoardRequestFailed.ExecuteIfBound(FString::Printf(TEXT("Gemini response malformed.")));
+	FText ErrorText = LOCTEXT("GeminiMalformedResponseText", "Gemini response malformed.");
+	LastServerMessage->Content = ErrorText;
+	ChatListView->RequestListRefresh();
+
+	OnBoardRequestFailed.ExecuteIfBound(ErrorText.ToString());
 }
+
+TSharedRef<ITableRow> SMinesweeperPrompt::OnGenerateChatRow(TSharedPtr<FPromptMessage> Message, const TSharedRef<STableViewBase>& Owner)
+{
+	const EHorizontalAlignment Alignment = Message->bIsUser ? HAlign_Right : HAlign_Left;
+	const FString Author = Message->bIsUser ? TEXT("You") : TEXT("Gemini");
+	const FString MessageHeader = FString::Printf(TEXT("%s says:"), *Author);
+	
+	return SNew(STableRow<TSharedPtr<FPromptMessage>>, Owner)
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.HAlign(Alignment)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(MessageHeader))
+				]
+			]
+			+SVerticalBox::Slot()
+			[
+				SNew(SBox)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.HAlign(Alignment)
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text_Lambda([Message]() { return Message->Content; })
+					]
+				]
+			]
+		];
+}
+
 
 FString SMinesweeperPrompt::ClearResponse(FString Response)
 {
