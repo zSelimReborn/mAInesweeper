@@ -8,10 +8,9 @@
 class FToolBarBuilder;
 class FMenuBuilder;
 class FUICommandList;
+class FSpawnTabArgs;
 
-class SMinesweeperBoard;
-class SMinesweeperPrompt;
-class SDockTab;
+class SMinesweeperTab;
 
 class FSweeperPluginModule : public IModuleInterface
 {
@@ -21,24 +20,16 @@ public:
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 	
-	/** This function will be bound to Command (by default it will bring up plugin window) */
-	void PluginButtonClicked();
-	
+	void MinesweeperButtonClicked();
+
+// Callbacks
 private:
+	void RegisterMinesweeperButton();
+	TSharedRef<SDockTab> OnSpawnMinesweeperTab(const FSpawnTabArgs& SpawnTabArgs);
 
-	void RegisterMenus();
-
-	FReply OnPlayAgainClick();
-
-	void OnGameOver();
-	void OnGameWin();
-
-	TSharedRef<SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
-
-	void OnBoardRequestCompleted(FString BoardText);
-
+// Properties
 private:
 	TSharedPtr<FUICommandList> PluginCommands;
-	TSharedPtr<SMinesweeperBoard> MinesweeperBoard;
-	TSharedPtr<SMinesweeperPrompt> MinesweeperPrompt;
+
+	TSharedPtr<SMinesweeperTab> MinesweeperTab;
 };

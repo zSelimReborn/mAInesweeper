@@ -9,10 +9,8 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Text/STextBlock.h"
 #include "ToolMenus.h"
-#include "Dialog/SCustomDialog.h"
 #include "Templates/SharedPointer.h"
-#include "Widgets/SMinesweeperBoard.h"
-#include "Widgets/SMinesweeperPrompt.h"
+#include "Widgets/SMinesweeperTab.h"
 
 static const FName SweeperPluginTabName("SweeperPlugin");
 
@@ -29,13 +27,13 @@ void FSweeperPluginModule::StartupModule()
 
 	PluginCommands->MapAction(
 		FSweeperPluginCommands::Get().OpenMinesweeperWindow,
-		FExecuteAction::CreateRaw(this, &FSweeperPluginModule::PluginButtonClicked),
+		FExecuteAction::CreateRaw(this, &FSweeperPluginModule::MinesweeperButtonClicked),
 		FCanExecuteAction()
 	);
 
-	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FSweeperPluginModule::RegisterMenus));
+	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FSweeperPluginModule::RegisterMinesweeperButton));
 	
-	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(SweeperPluginTabName, FOnSpawnTab::CreateRaw(this, &FSweeperPluginModule::OnSpawnPluginTab))
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(SweeperPluginTabName, FOnSpawnTab::CreateRaw(this, &FSweeperPluginModule::OnSpawnMinesweeperTab))
 		.SetDisplayName(LOCTEXT("FSweeperPluginTabTitle", "Minesweeper!"))
 		.SetMenuType(ETabSpawnerMenuType::Hidden);
 }
@@ -56,123 +54,18 @@ void FSweeperPluginModule::ShutdownModule()
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(SweeperPluginTabName);
 }
 
-TSharedRef<SDockTab> FSweeperPluginModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
+TSharedRef<SDockTab> FSweeperPluginModule::OnSpawnMinesweeperTab(const FSpawnTabArgs& SpawnTabArgs)
 {
-	FText HintText = LOCTEXT("SweeperPromptHint", "Waiting your mAInesweeper request...");
-	
-	MinesweeperBoard = SNew(SMinesweeperBoard)
-		.OnGameOver_Raw(this, &FSweeperPluginModule::OnGameOver)
-		.OnGameWin_Raw(this, &FSweeperPluginModule::OnGameWin);
-
-	MinesweeperPrompt = SNew(SMinesweeperPrompt)
-		.OnBoardRequestCompleted_Raw(this, &FSweeperPluginModule::OnBoardRequestCompleted);
-	
-	return SNew(SDockTab)
-		.TabRole(ETabRole::NomadTab)
-		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.VAlign(VAlign_Fill)
-			.FillHeight(0.5f)
-			.Padding(10.f)
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(10.f)
-				[
-					SNew(SBox)
-					.HAlign(HAlign_Fill)
-					.VAlign(VAlign_Center)
-					[
-						MinesweeperBoard.ToSharedRef()
-					]
-				]
-				+SHorizontalBox::Slot()
-				.Padding(10.f)
-				[
-					SNew(SBox)
-					.HAlign(HAlign_Left)
-					.VAlign(VAlign_Top)
-					[
-						SNew(SButton)
-						.OnClicked_Raw(this, &FSweeperPluginModule::OnPlayAgainClick)
-						.IsEnabled_Lambda([this]() { return !MinesweeperBoard->GetCurrentBoardText().IsEmpty(); })
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.HAlign(HAlign_Center)
-							.VAlign(VAlign_Center)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("PlayAgainButtonText", "Play Again"))
-								.Justification(ETextJustify::Center)
-							]
-						]
-					]
-				]
-			]
-			+SVerticalBox::Slot()
-			.HAlign(HAlign_Fill)
-			.VAlign(VAlign_Fill)
-			.FillHeight(0.3f)
-			[
-				SNew(SBox)
-				.Padding(10.f)
-				.HAlign(HAlign_Fill)
-				.VAlign(VAlign_Bottom)
-				[
-					MinesweeperPrompt.ToSharedRef()
-				]
-			]
-		];
+	MinesweeperTab = SNew(SMinesweeperTab);
+	return MinesweeperTab.ToSharedRef();
 }
 
-void FSweeperPluginModule::OnGameOver()
-{
-	TSharedRef<SCustomDialog> GameOverDialog = SNew(SCustomDialog)
-		.Title(LOCTEXT("GameOverDialog", "Game Over!"))
-		.Content()
-		[
-			SNew(STextBlock)
-			.Text(LOCTEXT("GameOverText", "Game Over!"))
-			.Justification(ETextJustify::Center)
-		]
-		.Buttons({
-			SCustomDialog::FButton(LOCTEXT("CloseText", "Close")),
-		});
-
-	GameOverDialog->ShowModal();
-}
-
-void FSweeperPluginModule::OnGameWin()
-{
-	TSharedRef<SCustomDialog> GameWonDialog = SNew(SCustomDialog)
-		.Title(LOCTEXT("GameWonDialog", "Game Won!"))
-		.Content()
-		[
-			SNew(STextBlock)
-			.Text(LOCTEXT("GameWonText", "Congratulations! You won the game!"))
-			.Justification(ETextJustify::Center)
-		]
-		.Buttons({
-			SCustomDialog::FButton(LOCTEXT("CloseText", "Close")),
-		});
-
-	GameWonDialog->ShowModal();
-}
-
-void FSweeperPluginModule::OnBoardRequestCompleted(FString BoardText)
-{
-	MinesweeperBoard->BuildFromString(BoardText);
-}
-
-void FSweeperPluginModule::PluginButtonClicked()
+void FSweeperPluginModule::MinesweeperButtonClicked()
 {
 	FGlobalTabmanager::Get()->TryInvokeTab(SweeperPluginTabName);
 }
 
-void FSweeperPluginModule::RegisterMenus()
+void FSweeperPluginModule::RegisterMinesweeperButton()
 {
 	FToolMenuOwnerScoped OwnerScoped(this);
 
@@ -190,12 +83,6 @@ void FSweeperPluginModule::RegisterMenus()
 			));
 		}
 	}
-}
-
-FReply FSweeperPluginModule::OnPlayAgainClick()
-{
-	MinesweeperBoard->Rebuild();
-	return FReply::Handled();
 }
 
 #undef LOCTEXT_NAMESPACE
