@@ -113,8 +113,8 @@ void FMinesweeperBoard::Create(const FString& BoardText)
 	}
 
 	// Debug logging
-	UE_LOG(LogTemp, Error, TEXT("[MineSweeper] - Created board. Rows: %d | Cols: %d | CellToDiscover: %d"), RowCount, ColCount, CellToDiscover);
-	UE_LOG(LogTemp, Error, TEXT("[MineSweeper] - Original string: %s"), *BoardText);
+	UE_LOG(LogSlate, Display, TEXT("[MineSweeper] - Created board. Rows: %d | Cols: %d | CellToDiscover: %d | BombCount: %d"), RowCount, ColCount, CellToDiscover, TotalBombCount);
+	UE_LOG(LogSlate, Display, TEXT("[MineSweeper] - Original string: %s"), *BoardText);
 	for (int32 i = 0; i < RowCount; ++i)
 	{
 		FString RowPrint;
@@ -128,7 +128,7 @@ void FMinesweeperBoard::Create(const FString& BoardText)
 			RowPrint.Append(ElementString);
 		}
 
-		UE_LOG(LogTemp, Error, TEXT("[MineSweeper] - [%s]"), *RowPrint);
+		UE_LOG(LogSlate, Display, TEXT("[MineSweeper] - [%s]"), *RowPrint);
 	}
 }
 

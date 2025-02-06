@@ -67,7 +67,7 @@ TSharedRef<IHttpRequest> SMinesweeperPrompt::BuildBoardRequest(const FString& Pr
 	Request->SetHeader("Content-Type", "application/json");
 	Request->SetContentAsString(RequestBody);
 
-	UE_LOG(LogTemp, Error, TEXT("[Minesweeper] - AI Request: %s"), *RequestBody);
+	UE_LOG(LogSlate, Display, TEXT("[Minesweeper] - AI Request: %s"), *RequestBody);
 	return Request;
 }
 
@@ -98,12 +98,12 @@ FReply SMinesweeperPrompt::OnPromptButtonClick()
 	const FText Prompt = PromptEditableText->GetText();
 	if (Prompt.IsEmpty())
 	{
-		UE_LOG(LogTemp, Error, TEXT("[Minesweeper] - Empty prompt"));
+		UE_LOG(LogSlate, Error, TEXT("[Minesweeper] - Empty prompt. AI Request blocked."));
 		return FReply::Handled();
 	}
 
 	CurrentPromptText = Prompt.ToString();
-	UE_LOG(LogTemp, Error, TEXT("[Minesweeper] - Prompt: %s"), *CurrentPromptText);
+	UE_LOG(LogSlate, Display, TEXT("[Minesweeper] - Prompt: %s"), *CurrentPromptText);
 	PromptEditableText->SetText(FText::GetEmpty());
 
 	TSharedRef<IHttpRequest> Request = BuildBoardRequest(CurrentPromptText);
@@ -118,7 +118,7 @@ void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request
 	
 	if (!bWasSuccessful || !Response.IsValid() || Response->GetResponseCode() > EHttpResponseCodes::PartialContent)
 	{
-		UE_LOG(LogTemp, Error, TEXT("[Minesweeper] - Error contacting Gemini: %d"), Response->GetResponseCode());
+		UE_LOG(LogSlate, Error, TEXT("[Minesweeper] - Error contacting Gemini: %d"), Response->GetResponseCode());
 		OnBoardRequestFailed.ExecuteIfBound(FString::Printf(TEXT("Error contacting Gemini: %d"), Response->GetResponseCode()));
 		return;
 	}
@@ -129,7 +129,7 @@ void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request
 	FJsonSerializer::Deserialize(Reader, BodyJson);
 	if (!BodyJson.IsValid())
 	{
-		UE_LOG(LogTemp, Error, TEXT("[Minesweeper] - AI response not valid, no JSON"));
+		UE_LOG(LogSlate, Error, TEXT("[Minesweeper] - AI response not valid, no JSON"));
 		OnBoardRequestFailed.ExecuteIfBound(FString::Printf(TEXT("Failed to deserialize Gemini response: %s"), *Body));
 		return;
 	}
@@ -149,7 +149,7 @@ void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request
 					TSharedPtr<FJsonObject> Text = Parts[0]->AsObject();
 					FString BoardText = Text->GetStringField(TEXT("text"));
 					BoardText = ClearResponse(BoardText);
-					UE_LOG(LogTemp, Error, TEXT("[MineSweeper] - Board: %s"), *BoardText);
+					UE_LOG(LogSlate, Display, TEXT("[MineSweeper] - Board: %s"), *BoardText);
 
 					OnBoardRequestCompleted.ExecuteIfBound(BoardText);
 					return;
