@@ -26,7 +26,8 @@ class SWEEPERPLUGIN_API SMinesweeperPrompt : public SCompoundWidget
 public:
 	typedef TArray<TSharedPtr<FPromptMessage>> TPromptList;
 	typedef SListView<TSharedPtr<FPromptMessage>> TPromptListWidget;
-	
+
+	static const FString NOT_RELATED_RESPONSE;
 	static const FString GEMINI_PROMPT_BASE_URL;
 	
 	SLATE_BEGIN_ARGS(SMinesweeperPrompt) {}

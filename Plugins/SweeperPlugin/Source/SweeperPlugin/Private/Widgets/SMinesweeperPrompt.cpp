@@ -15,6 +15,7 @@
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+const FString SMinesweeperPrompt::NOT_RELATED_RESPONSE = TEXT("[]");
 const FString SMinesweeperPrompt::GEMINI_PROMPT_BASE_URL = TEXT("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent");
 
 void SMinesweeperPrompt::Construct(const FArguments& InArgs)
@@ -122,16 +123,16 @@ FString SMinesweeperPrompt::BuildRequestBody(const FString& Prompt) const
 				"{ \"text\": \"You are an assistant specialized in generating grids for the Minesweeper game. "
 					"Respond with only 0 (empty) and 1 (mine), with each cell separated by commas and each row separated by a |. "
 					"No extra text or explanations. Each time, generate a different field. "
-					"If the request is not related to Minesweeper, respond with an empty JSON: [].\" "
+					"If the request is not related to Minesweeper, respond with: {0}.\" "
 				"} "
 			"] "
 		"}, "
 		"{ \"role\": \"user\", "
-			"\"parts\": [ { \"text\": \"{0}\" } ] "
+			"\"parts\": [ { \"text\": \"{1}\" } ] "
 		"} "
 	"] "
 	"}");
-	return FString::Format(*Base, {Prompt});
+	return FString::Format(*Base, {NOT_RELATED_RESPONSE, Prompt});
 }
 
 FReply SMinesweeperPrompt::OnPromptButtonClick()
@@ -227,10 +228,19 @@ void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request
 					BoardText = ClearResponse(BoardText);
 					UE_LOG(LogSlate, Display, TEXT("[MineSweeper] - Board: %s"), *BoardText);
 
-					LastServerMessage->Content = LOCTEXT("GeminiGeneratedText", "Board generated correctly.");
+					FText NewServerMessage = LOCTEXT("GeminiGeneratedText", "Board generated correctly.");
+					if (BoardText.Equals(NOT_RELATED_RESPONSE))
+					{
+						NewServerMessage = LOCTEXT("GeminiNotRelatedResponse", "Out of Minesweeper scope, I'm sorry.");
+						OnBoardRequestFailed.ExecuteIfBound(NewServerMessage.ToString());
+					}
+					else
+					{
+						OnBoardRequestCompleted.ExecuteIfBound(BoardText);
+					}
+
+					LastServerMessage->Content = NewServerMessage;
 					ChatListView->RequestListRefresh();
-					
-					OnBoardRequestCompleted.ExecuteIfBound(BoardText);
 					return;
 				}
 			}
@@ -285,7 +295,8 @@ TSharedRef<ITableRow> SMinesweeperPrompt::OnGenerateChatRow(TSharedPtr<FPromptMe
 
 FString SMinesweeperPrompt::ClearResponse(FString Response)
 {
-	return Response.Replace(TEXT("\n"), TEXT(""));
+	Response = Response.Replace(TEXT("\n"), TEXT(""));
+	return Response.TrimStartAndEnd();
 }
 
 FString SMinesweeperPrompt::GetGeminiApiKey() const
