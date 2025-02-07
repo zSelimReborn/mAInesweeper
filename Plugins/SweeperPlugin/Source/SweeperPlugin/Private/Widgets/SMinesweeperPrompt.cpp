@@ -5,8 +5,10 @@
 
 #include "HttpModule.h"
 #include "SlateOptMacros.h"
+#include "SweeperPluginStyle.h"
 #include "Interfaces/IHttpResponse.h"
 #include "Settings/AISettings.h"
+#include "Widgets/Text/SRichTextBlock.h"
 #include "Widgets/Views/SListView.h"
 
 #define LOCTEXT_NAMESPACE "FSweeperPluginModule"
@@ -21,19 +23,24 @@ void SMinesweeperPrompt::Construct(const FArguments& InArgs)
 	OnBoardRequestFailed = InArgs._OnBoardRequestFailed;
 	
 	FText HintText = LOCTEXT("SweeperPromptHint", "Waiting your mAInesweeper request...");
-	PromptEditableText = SNew(SEditableText)
-				.HintText(HintText)
-				.OnTextCommitted_Raw(this,&SMinesweeperPrompt::OnPromptCommit);
-
 	ChildSlot
 	[
 		SNew(SVerticalBox)
 		+SVerticalBox::Slot()
+		.VAlign(VAlign_Bottom)
+		.HAlign(HAlign_Fill)
+		.FillHeight(1.f)
 		[
 			SNew(SScrollBox)
 			.Orientation(Orient_Vertical)
+			.Style(&FScrollBoxStyle()
+				.SetTopShadowBrush(FSlateNoResource())
+				.SetBottomShadowBrush(FSlateNoResource()) 
+				.SetLeftShadowBrush(FSlateNoResource())
+				.SetRightShadowBrush(FSlateNoResource())
+			)
+			.Clipping(EWidgetClipping::ClipToBounds)
 			+SScrollBox::Slot()
-			.Padding(10)
 			[
 				SAssignNew(ChatListView, SListView<TSharedPtr<FPromptMessage>>)
 					.ListItemsSource(&PromptMessages)
@@ -43,28 +50,42 @@ void SMinesweeperPrompt::Construct(const FArguments& InArgs)
 			]
 		]
 		+SVerticalBox::Slot()
+		.HAlign(HAlign_Fill)
+		.AutoHeight()
 		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.FillWidth(.9f)
+			SNew(SBorder)
+			.BorderBackgroundColor(FSweeperPluginStyle::Get().GetSlateColor(TEXT("SweeperPlugin.DefaultBorderColor")))
 			.HAlign(HAlign_Fill)
 			.VAlign(VAlign_Center)
 			[
-				PromptEditableText.ToSharedRef()
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.FillWidth(.1f)
-			.HAlign(HAlign_Fill)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SButton)
-				.OnClicked_Raw(this, &SMinesweeperPrompt::OnPromptButtonClick)
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.Padding(5)
+				.HAlign(HAlign_Fill)
+				.VAlign(VAlign_Center)
 				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("PromptButtonText", "Send"))
-					.Justification(ETextJustify::Center)
+					SAssignNew(PromptEditableText, SEditableText)
+					.HintText(HintText)
+					.OnTextCommitted_Raw(this,&SMinesweeperPrompt::OnPromptCommit)
+				]
+				+SHorizontalBox::Slot()
+				.Padding(5)
+				.AutoWidth()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SButton)
+					.OnClicked_Raw(this, &SMinesweeperPrompt::OnPromptButtonClick)
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.HAlign(HAlign_Center)
+						.VAlign(VAlign_Center)
+						[
+							SNew(SImage)
+							.Image(FAppStyle::GetBrush("Icons.ChevronRight")) 
+						]
+					]
 				]
 			]
 		]
@@ -131,7 +152,8 @@ void SMinesweeperPrompt::OnPromptCommit(const FText& PromptText, ETextCommit::Ty
 
 bool SMinesweeperPrompt::HandlePrompt()
 {
-	const FText Prompt = PromptEditableText->GetText();
+	FText Prompt = PromptEditableText->GetText();
+	Prompt = FText::TrimPrecedingAndTrailing(Prompt);
 	if (Prompt.IsEmpty())
 	{
 		UE_LOG(LogSlate, Error, TEXT("[Minesweeper] - Empty prompt. AI Request blocked."));
@@ -225,10 +247,10 @@ void SMinesweeperPrompt::OnBoardRequestCompletedCallback(FHttpRequestPtr Request
 TSharedRef<ITableRow> SMinesweeperPrompt::OnGenerateChatRow(TSharedPtr<FPromptMessage> Message, const TSharedRef<STableViewBase>& Owner)
 {
 	const EHorizontalAlignment Alignment = Message->bIsUser ? HAlign_Right : HAlign_Left;
-	const FString Author = Message->bIsUser ? TEXT("You") : TEXT("Gemini");
-	const FString MessageHeader = FString::Printf(TEXT("%s says:"), *Author);
+	const FText Author = Message->bIsUser ? LOCTEXT("PromptUserAuthorText", "You say:") : LOCTEXT("PromptAgentAuthorText", "Gemini says:");
 	
 	return SNew(STableRow<TSharedPtr<FPromptMessage>>, Owner)
+		.Padding(5)
 		[
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()
@@ -239,7 +261,8 @@ TSharedRef<ITableRow> SMinesweeperPrompt::OnGenerateChatRow(TSharedPtr<FPromptMe
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(MessageHeader))
+					.Text(Author)
+					.Font(FSweeperPluginStyle::Get().GetFontStyle(TEXT("SweeperPlugin.FontItalic")))
 				]
 			]
 			+SVerticalBox::Slot()

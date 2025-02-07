@@ -48,6 +48,9 @@ TSharedRef< FSlateStyleSet > FSweeperPluginStyle::Create()
 	Style->Set("SweeperPlugin.MediumDangerColor", FSlateColor(FColor::Green));
 	Style->Set("SweeperPlugin.HighDangerColor", FSlateColor(FColor::Red));
 	Style->Set("SweeperPlugin.BombColor", FSlateColor(FColor::Black));
+	Style->Set("SweeperPlugin.DefaultBorderColor", FSlateColor(FColor(175, 191, 192)));
+
+	Style->Set("SweeperPlugin.FontItalic", FCoreStyle::GetDefaultFontStyle("Italic", 8));
 	
 	return Style;
 }

@@ -16,40 +16,24 @@ void SMinesweeperTab::Construct(const FArguments& InArgs)
 {
 	FText HintText = LOCTEXT("SweeperPromptHint", "Waiting your mAInesweeper request...");
 
-	MinesweeperBoard = SNew(SMinesweeperBoard)
-		.OnGameOver_Raw(this, &SMinesweeperTab::OnGameOver)
-		.OnGameWin_Raw(this, &SMinesweeperTab::OnGameWin);
-
-	MinesweeperPrompt = SNew(SMinesweeperPrompt)
-		.OnBoardRequestCompleted_Raw(this, &SMinesweeperTab::OnBoardRequestCompleted);
-
 	SDockTab::Construct(SDockTab::FArguments()
 	.TabRole(ETabRole::NomadTab)
 		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Fill)
 			.VAlign(VAlign_Fill)
-			.FillHeight(0.5f)
-			.Padding(10.f)
+			.FillWidth(0.5f)
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(10.f)
-				[
-					SNew(SBox)
-					.HAlign(HAlign_Fill)
-					.VAlign(VAlign_Center)
-					[
-						MinesweeperBoard.ToSharedRef()
-					]
-				]
-				+SHorizontalBox::Slot()
-				.Padding(10.f)
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.VAlign(VAlign_Fill)
+				.FillHeight(0.1f)
 				[
 					SNew(SBox)
 					.HAlign(HAlign_Left)
-					.VAlign(VAlign_Top)
+					.VAlign(VAlign_Fill)
+					.Padding(5)
 					[
 						SNew(SButton)
 						.OnClicked_Raw(this, &SMinesweeperTab::OnPlayAgainClick)
@@ -67,18 +51,38 @@ void SMinesweeperTab::Construct(const FArguments& InArgs)
 						]
 					]
 				]
+				+SVerticalBox::Slot()
+				.VAlign(VAlign_Fill)
+				.FillHeight(0.9f)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(5)
+					[
+						SNew(SBox)
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						[
+							SAssignNew(MinesweeperBoard, SMinesweeperBoard)
+							.OnGameOver_Raw(this, &SMinesweeperTab::OnGameOver)
+							.OnGameWin_Raw(this, &SMinesweeperTab::OnGameWin)
+						]
+					]
+				]
 			]
-			+SVerticalBox::Slot()
+			+SHorizontalBox::Slot()
 			.HAlign(HAlign_Fill)
 			.VAlign(VAlign_Fill)
-			.FillHeight(0.3f)
+			.FillWidth(0.5f)
 			[
 				SNew(SBox)
-				.Padding(10.f)
 				.HAlign(HAlign_Fill)
-				.VAlign(VAlign_Bottom)
+				.VAlign(VAlign_Fill)
+				.Padding(5)
 				[
-					MinesweeperPrompt.ToSharedRef()
+					SAssignNew(MinesweeperPrompt, SMinesweeperPrompt)
+					.OnBoardRequestCompleted_Raw(this, &SMinesweeperTab::OnBoardRequestCompleted)
 				]
 			]
 		]
